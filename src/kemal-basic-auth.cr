@@ -27,53 +27,49 @@ class HTTPBasicAuth
     @@runtime.not_nil!
   end
 
-  getter credentials
-  delegate update, to: credentials
-
-  def initialize(@credentials : Credentials = Credentials.new)
-  end
-
-  # backward compatibility
-  def initialize(username : String, password : String)
-    initialize({ username => password })
-  end
-
-  def initialize(hash : Hash(String, String))
-    initialize(Credentials.new(hash))
-  end
+  delegate register, credentials?, to: @credentials_holder
   
+  def initialize
+    @credentials_holder = CredentialsHolder.new
+  end
+
   def call(context)
-    if context.request.headers[AUTH]?
-      if value = context.request.headers[AUTH]
-        if value.size > 0 && value.starts_with?(BASIC)
-          if username = authorize?(value)
-            context.kemal_authorized_username = username
-            return call_next(context)
-          end
-        end
+    if credentials = credentials?(context.request.path)
+      username, password = extract_username_and_password(context)
+      if credentials.authorize?(username, password)
+        context.kemal_authorized_username = username
+        call_next(context)
+      else
+        call_deny(context)
+      end
+    else
+      # no needs to authorize
+      call_next(context)
+    end
+  end
+
+  protected def extract_username_and_password(context)
+    if value = context.request.headers[AUTH]?
+      if value.size > 0 && value.starts_with?(BASIC)
+        return Base64.decode_string(value[BASIC.size + 1..-1]).split(":", 2)
       end
     end
+    return {"", ""}
+  end
+
+  protected def call_deny(context)
     headers = HTTP::Headers.new
     context.response.status_code = 401
     context.response.headers["WWW-Authenticate"] = HEADER_LOGIN_REQUIRED
     context.response.print AUTH_MESSAGE
   end
-
-  def authorize?(value) : String?
-    username, password = Base64.decode_string(value[BASIC.size + 1..-1]).split(":")
-    authorize?(username, password)
-  end
-
-  def authorize?(username : String, password : String) : String?
-    @credentials.authorize?(username, password)
-  end
 end
 
 # Helper to easily add HTTP Basic Auth support.
-def basic_auth(username, password)
-  HTTPBasicAuth.runtime.update(username, password)
+def basic_auth(username, password, only : Regex? = nil)
+  HTTPBasicAuth.runtime.register(username, password, only)
 end
 
-def basic_auth(crendentials : Hash(String, String))
-  HTTPBasicAuth.runtime.update(crendentials)
+def basic_auth(crendentials : Hash(String, String), only : Regex? = nil)
+  HTTPBasicAuth.runtime.register(crendentials, only)
 end

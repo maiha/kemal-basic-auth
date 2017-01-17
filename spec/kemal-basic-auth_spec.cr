@@ -2,7 +2,8 @@ require "./spec_helper"
 
 describe "HTTPBasicAuth" do
   it "goes to next handler with correct credentials" do
-    auth_handler = HTTPBasicAuth.new("serdar", "123")
+    auth_handler = HTTPBasicAuth.new
+    auth_handler.register("serdar", "123")
     request = HTTP::Request.new(
       "GET",
       "/",
@@ -16,7 +17,8 @@ describe "HTTPBasicAuth" do
   end
 
   it "returns 401 with incorrect credentials" do
-    auth_handler = HTTPBasicAuth.new("serdar", "123")
+    auth_handler = HTTPBasicAuth.new
+    auth_handler.register("serdar", "123")
     request = HTTP::Request.new(
       "GET",
       "/",
@@ -39,12 +41,6 @@ describe "HTTPBasicAuth" do
   describe ".runtime" do
     it "returns singleton instance" do
       HTTPBasicAuth.runtime.should be_a(HTTPBasicAuth)
-    end
-
-    it "is affected by `basic_auth`" do
-      HTTPBasicAuth.runtime.authorize?("a", "1").should eq(nil)
-      basic_auth "a", "1"
-      HTTPBasicAuth.runtime.authorize?("a", "1").should eq("a")
     end
   end
 end

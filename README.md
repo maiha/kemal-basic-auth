@@ -49,6 +49,26 @@ end
 basic_auth "guest", "temp"
 get "/trial" do |env|
   "restricted page" # both `user1` and `guest` can see this page.
+```
+
+### `only` paths
+
+Apply authorization to the limited pages based on `only` paths which is a `Regex`.
+Credentials are bound to the regex.
+
+```crystal
+get "/" do |env|
+  "public page"
+end
+
+basic_auth "user1", "123", only: %r(^/my/)
+get "/my/" do |env|
+  "authorized page" # only `user1` can see this page.
+end
+
+basic_auth "admin", "456", only: %r(^/control/)
+get "/control/" do |env|
+  "highly secured page" # only `admin` can see this page.
 end
 ```
 
